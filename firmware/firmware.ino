@@ -66,9 +66,13 @@ void loop() {
   }
   lcd.print(p);
 
+  int b = digitalRead(BUTTON);
+  lcd.print(' ');
+  lcd.print(b);
+
   switch(currentState) {
     case NOT_PLAYING:
-      if (digitalRead(BUTTON)) {
+      if (b) {
         currentState = PLAYING_NOTE_START;
       }
       break;
