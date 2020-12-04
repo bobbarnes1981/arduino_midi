@@ -26,8 +26,8 @@
 
 #define MIDI_MSG_NOTEOFF 0x80
 #define MIDI_MSG_NOTEON 0x90
-#define MIDI_MDG_CTRL 0xD0
-#define MIDI_MDG_CHNL 0xD0
+#define MIDI_MSG_CTRL 0xD0
+#define MIDI_MSG_CHNL 0xD0
 
 #define CHANNEL 0x00
 
