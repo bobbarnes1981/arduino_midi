@@ -10,11 +10,13 @@
 #define LCD_ROW 2
 #define LCD_COL 16
 
-#define BUTTON1 2
+#define BUTTON_DISP 2
 #define POT_NOTES A0
-#define POT_STEPS 
-#define POT_OFFSET
-#define POT_SPEED
+#define POT_STEPS A1
+#define POT_SPEED A2
+#define POT_OFFSET A3
+#define POT_NOTE A6
+#define POT_CHORD A7
 
 #ifdef DEBUG
 #define MIDI_BAUD 115200
@@ -43,7 +45,7 @@ int euc_offset = 0; // offset from start
 int current_step = -1; // current step in the euclidean sequence
 unsigned long step_started = 0; // millis() time when step started
 
-int button1;
+int button_disp;
 
 int playing_note = 0; // currently playing midi note
 
@@ -135,7 +137,7 @@ void print_number(int number, int len) {
 }
 
 void read_inputs() {
-  button1 = digitalRead(BUTTON1);
+  button_disp = digitalRead(BUTTON_DISP);
   euc_notes = map(analogRead(POT_NOTES), 0, 1023, 0, 16);
 }
 
