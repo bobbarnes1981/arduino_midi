@@ -38,8 +38,8 @@ LiquidCrystal_I2C lcd(LCD_ADDR, LCD_COL, LCD_ROW);
 byte notes_values[NOTES_MAX] = { 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82 };
 
 int step_length = 250; // length of each euclidean step
-int euc_steps = 16; // total number of euclidean steps
-int euc_notes = 0; // number of notes to play in the sequence
+int euc_steps = 12; // total number of euclidean steps
+int euc_notes; // number of notes to play in the sequence
 int euc_offset = 0; // offset from start
 
 int current_step = -1; // current step in the euclidean sequence
@@ -89,15 +89,19 @@ void update_display() {
   
   lcd.setCursor(0, 1);
   for (int i = 0; i < 16; i++) {
-    int index = get_index(i);
-    if (index == current_step) {
-      lcd.print('X');
-    } else {
-      if (p[index] == HIGH) {
-        lcd.print(index, HEX);
+    if (i < euc_steps) {
+      int index = get_index(i);
+      if (i == current_step) {
+        lcd.print('X');
       } else {
-        lcd.print(' ');
+        if (p[index] == HIGH) {
+          lcd.print(index, HEX);
+        } else {
+          lcd.print(' ');
+        }
       }
+    } else {
+      lcd.print('.');
     }
   }
 }
