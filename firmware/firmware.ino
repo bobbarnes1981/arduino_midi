@@ -151,13 +151,13 @@ void process_playing() {
     }
 
     if (p[get_index(current_step)] == HIGH) {
-      euc_stopLastNote();
+      euc_stopLastNote(); // todo: should always stop last note as we only keep record of 1 note
       
       // current step is a note
       euc_startNextNote();
     } else {
       // current step is a rest
-      euc_stopLastNote();
+      euc_stopLastNote(); // todo: should only stop note if the note length has been reached
     }
   }
 }
