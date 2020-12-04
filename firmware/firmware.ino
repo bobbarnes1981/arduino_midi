@@ -1,5 +1,6 @@
 #include <Wire.h>
 #include <LiquidCrystal_I2C.h>
+#include "bjorklund.h"
 
 #define LED 6
 
@@ -9,8 +10,11 @@
 #define LCD_ROW 2
 #define LCD_COL 16
 
-#define BUTTON 2
-#define POT A0
+#define BUTTON1 2
+#define POT_NOTES A0
+#define POT_STEPS 
+#define POT_OFFSET
+#define POT_SPEED
 
 #ifdef DEBUG
 #define MIDI_BAUD 115200
@@ -28,20 +32,20 @@
 LiquidCrystal_I2C lcd(LCD_ADDR, LCD_COL, LCD_ROW);
 
 #define NOTES_MAX 12
+// notes to play, TODO: generate a scale
 byte notes_values[NOTES_MAX] = { 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82 };
-int notes_play[NOTES_MAX] = { 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000 };
-int notes_wait[NOTES_MAX] = { 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000, 1000 };
-int notes_current = 0;
-unsigned long noteStart = 0;
 
-enum playState {
-  NOT_PLAYING,
-  PLAYING_NOTE_START,
-  PLAYING_NOTE_STARTED,
-  PLAYING_NOTE_STOPPED
-};
+int step_length = 250; // length of each euclidean step
+int euc_steps = 16; // total number of euclidean steps
+int euc_notes = 0; // number of notes to play in the sequence
+int euc_offset = 0; // offset from start
 
-playState currentState = NOT_PLAYING;
+int current_step = -1; // current step in the euclidean sequence
+unsigned long step_started = 0; // millis() time when step started
+
+int button1;
+
+int playing_note = 0; // currently playing midi note
 
 void setup() {
   pinMode(LED, OUTPUT);
@@ -53,76 +57,140 @@ void setup() {
 
   lcd.setCursor(0, 0);
   lcd.print("Arduino MIDI");
+  delay(1000);
+  lcd.clear();
 }
 
 void loop() {
   digitalWrite(LED, millis() % 1000 > 750);
 
-  int p = analogRead(POT);
-  int offset = p > 999 ? 1 : (p > 99 ? 2 : (p > 9 ? 3 : 4));
+  read_inputs();
+  
+  bjorklund(euc_steps, euc_notes);
+
+  update_display();
+
+  process_playing();
+}
+
+void update_display() {
+  lcd.setCursor(0, 0);
+
+  lcd.print("n");
+  print_number(euc_notes, 2);
+  lcd.print("s");
+  print_number(euc_steps, 2);
+  lcd.print("t");
+  print_number(step_length, 3);
+  lcd.print("p");
+  print_number(playing_note, 3);
+  
   lcd.setCursor(0, 1);
-  for (int i = 0; i < offset; i++) {
-    lcd.print(' ');
+  for (int i = 0; i < 16; i++) {
+    int index = get_index(i);
+    if (index == current_step) {
+      lcd.print('X');
+    } else {
+      if (p[index] == HIGH) {
+        lcd.print(index, HEX);
+      } else {
+        lcd.print(' ');
+      }
+    }
   }
-  lcd.print(p);
+}
 
-  int b = digitalRead(BUTTON);
-  lcd.print(' ');
-  lcd.print(b);
+// convert step index to pattern sequence index with offset and limit applied
+int get_index(int i) {
+  return (i+euc_offset)%euc_steps;
+}
 
-  switch(currentState) {
-    case NOT_PLAYING:
-      if (b) {
-        currentState = PLAYING_NOTE_START;
-      }
+// convert the step index to notes to play index with limit applied
+int get_note_index(int i) {
+  int index = 0;
+  // count notes in current pattern before required note
+  for (int j = 0; j < i; j++) {
+    if (p[get_index(j)] == HIGH) {
+      index++;
+    }
+  }
+  return index % NOTES_MAX;
+}
+
+// print a number with leading zeros
+void print_number(int number, int len) {
+  int mult = pow(10, len-1);
+  int padding = 0;
+  for (int i = 1; i < len; i++) {
+    if (number > mult-1) {
       break;
-    case PLAYING_NOTE_START:
-      lcd.setCursor(13, 1);
-      lcd.print(notes_values[notes_current]);
-      midi_noteOn(CHANNEL, notes_values[notes_current], 0xFF);
-      currentState = PLAYING_NOTE_STARTED;
-      noteStart = millis();
-      break;
-    case PLAYING_NOTE_STARTED:
-      if (millis() - noteStart >= notes_play[notes_current]) {
-        lcd.setCursor(13, 1);
-        lcd.print("   ");
-        midi_noteOff(CHANNEL, notes_values[notes_current], 0x00);
-        currentState = PLAYING_NOTE_STOPPED;
-        noteStart = millis();
-      }
-      break;
-    case PLAYING_NOTE_STOPPED:
-      if (millis() - noteStart >= notes_wait[notes_current]) {
-        notes_current++;
-        if (notes_current >= NOTES_MAX) {
-          notes_current = 0;
-          currentState = NOT_PLAYING;
-        } else {
-          currentState = PLAYING_NOTE_START;
-        }
-      }
-      break;
+    }
+    padding++;
+    mult = mult / 10;
+  }
+  for (int i = 0; i < padding; i++) {
+    lcd.print('0');
+  }
+  lcd.print(number);
+}
+
+void read_inputs() {
+  button1 = digitalRead(BUTTON1);
+  euc_notes = map(analogRead(POT_NOTES), 0, 1023, 0, 16);
+}
+
+void process_playing() {
+  if (millis() - step_started > step_length) {
+    // increment the step
+    current_step++;
+    step_started = millis();
+
+    // reset to start
+    if (current_step >= euc_steps) {
+      current_step = 0;
+    }
+
+    if (p[get_index(current_step)] == HIGH) {
+      euc_stopLastNote();
+      
+      // current step is a note
+      euc_startNextNote();
+    } else {
+      // current step is a rest
+      euc_stopLastNote();
+    }
+  }
+}
+
+void euc_startNextNote() {
+  playing_note = notes_values[get_note_index(current_step)];
+  midi_noteOn(CHANNEL, playing_note, 127);
+}
+
+void euc_stopLastNote() {
+  if (playing_note != 0) {
+    midi_noteOff(CHANNEL, playing_note, 0);
+    playing_note = 0;
   }
 }
 
 void midi_noteOn(byte channel, byte pitch, byte velocity) {
   channel = channel & 0x0F;
   byte command = MIDI_MSG_NOTEON | channel;
-  writeMidi(command);
-  writeMidi(pitch);
-  writeMidi(velocity);
+  midi_write(command);
+  midi_write(pitch);
+  midi_write(velocity);
 }
 
 void midi_noteOff(byte channel, byte pitch, byte velocity) {
   channel = channel & 0x0F;
   byte command = MIDI_MSG_NOTEOFF | channel;
-  writeMidi(command);
-  writeMidi(pitch);
-  writeMidi(velocity);
+  midi_write(command);
+  midi_write(pitch);
+  midi_write(velocity);
 }
 
-void writeMidi(byte b) {
+void midi_write(byte b) {
   #ifdef DEBUG
   Serial.println(b, HEX);
   #else
