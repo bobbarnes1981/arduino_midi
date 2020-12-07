@@ -10,6 +10,7 @@
 #define LCD_ROW 2
 #define LCD_COL 16
 
+// TODO: maybe use 1wire rgb pot to get controls in smaller space with LCD
 #define BUTTON_DISP 2
 #define POT_NOTES A0
 #define POT_STEPS A1
