@@ -4,7 +4,7 @@
 
 #define LED 6
 
-#define DEBUG
+//#define DEBUG
 
 #define LCD_ADDR 0x27
 #define LCD_ROW 2
