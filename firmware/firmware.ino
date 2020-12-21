@@ -12,10 +12,12 @@
 
 // TODO: maybe use 1wire rgb pot to get controls in smaller space with LCD
 #define BUTTON_DISP 2
+
 #define POT_NOTES A0
 #define POT_STEPS A1
 #define POT_SPEED A2
 #define POT_OFFSET A3
+
 #define POT_NOTE A6
 #define POT_CHORD A7
 
@@ -144,6 +146,8 @@ void print_number(int number, int len) {
 void read_inputs() {
   button_disp = digitalRead(BUTTON_DISP);
   euc_notes = map(analogRead(POT_NOTES), 0, 1023, 0, 16);
+  euc_steps = map(analogRead(POT_STEPS), 0, 1023, 0, 16);
+  step_length = map(analogRead(POT_SPEED), 0, 1023, 0, 999);
 }
 
 void process_playing() {
